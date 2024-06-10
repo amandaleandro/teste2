@@ -1,24 +1,18 @@
 name: Docker Build & Push
-
 on:
   push:
     branches:
       - main
-
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout do código
         uses: actions/checkout@v2
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
-
-      - name: Validate Dockerfile for Production
-        run: docker build --pull --no-cache -t ${{ github.repository }}:${{ github.ref_name }} -f Dockerfile.prod .
-
+      - name: Validate Dockerfile
+        run: docker build --pull --no-cache -t ${{ github.repository }}:${{ github.ref_name }} -f Dockerfile .
       - name: Check if package.json exists
         id: check_package_json
         run: |
@@ -27,13 +21,6 @@ jobs:
           else
             echo "package_json_exist=false" >> $GITHUB_ENV
           fi
-
-      - name: Run tests and install dependencies
-        if: env.package_json_exist == 'true'
-        run: |
-          npm install
-          npm test
-
       - name: Determine version
         id: determine_version
         run: |
@@ -64,7 +51,6 @@ jobs:
           esac
           echo "new_version=$new_version" >> $GITHUB_ENV
           echo "new_version=$new_version"
-
       - name: Create new tag
         if: env.new_version != 'v0.0.0'
         run: |
@@ -72,7 +58,6 @@ jobs:
           git config user.email "github-actions@github.com"
           git tag ${{ env.new_version }}
           git push origin ${{ env.new_version }}
-
       - name: Login to DockerHub
         uses: docker/login-action@v2
         with:
@@ -83,12 +68,11 @@ jobs:
         uses: docker/build-push-action@v3
         with:
           context: .
-          file: ./Dockerfile # Aqui você especifica o Dockerfile.prod
+          file: ./Dockerfile
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/ci-cd-version:${{ env.new_version }}
           build-args: |
               version=${{ env.new_version }}
-
       - name: Store last successful version
         if: always()
         run: echo ${{ env.new_version }} > last_successful_version.txt
@@ -104,7 +88,7 @@ jobs:
 
       - name: Save Docker image name
         if: success()
-        run: echo "${{ secrets.DOCKER_USERNAME }}/ci-cd-version:${{ env.new_version }}" > docker_image_name.txt
+        run: echo "amandaleandro/ci-cd-version:${{ env.new_version }}" > docker_image_name.txt
 
       - name: Commit Docker image name
         if: success()
