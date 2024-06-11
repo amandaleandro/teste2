@@ -1,6 +1,6 @@
 FROM node:16.16.0-slim
-ARG version
-ENV version=${version}
+#ARG version
+#ENV version=${version}
 RUN apt update && apt install -y \
     git gpg gnupg gpg-agent socat \
     ca-certificates \

@@ -1,6 +1,6 @@
 FROM node:16.16.0-slim as testing
-ARG version
-ENV version=${version}
+#ARG version
+#ENV version=${version}
 USER node
 
 RUN mkdir -p /home/node/app
