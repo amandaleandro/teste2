@@ -69,9 +69,12 @@ jobs:
           case $increment in
             major)
               new_version="v$(($major + 1)).0.0"
+              minor=0
+              patch=0
               ;;
             minor)
               new_version="v$major.$(($minor + 1)).0"
+              patch=0
               ;;
             patch)
               new_version="v$major.$minor.$(($patch + 1))"
@@ -81,21 +84,30 @@ jobs:
           echo "New version: $new_version"
           echo "new_version=$new_version" >> $GITHUB_ENV
 
-      - name: Create new tag
+      - name: Remove previous latest tag
         if: env.package_json_exist == 'true'
         run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git tag ${{ env.new_version }}
-          git push origin ${{ env.new_version }}
+          IMAGE_NAME="${DOCKER_USERNAME}/nines-report"
+          EXISTING_TAG="${IMAGE_NAME}:latest"
+          PREVIOUS_TAG="${IMAGE_NAME}:${new_version}-previous-latest"
+          NEW_TAG="${IMAGE_NAME}:${new_version}-latest"
+          
+          # Renomear a tag latest para previous-latest
+          docker pull $EXISTING_TAG
+          docker tag $EXISTING_TAG $PREVIOUS_TAG
+          docker push $PREVIOUS_TAG
+          
+          # Remover a tag latest
+          docker rmi $EXISTING_TAG
 
       - name: Build Docker image for production
         if: env.package_json_exist == 'true'
-        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }} -f Dockerfile.prod .
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }} -t ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}-latest -f Dockerfile.prod .
 
       - name: Push Docker image for production
         if: env.package_json_exist == 'true'
-        run: docker push ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}
+        run: docker push ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}-latest
 
       - name: Store last successful version
         if: always()
@@ -112,7 +124,7 @@ jobs:
 
       - name: Save Docker image name
         if: success() && env.package_json_exist == 'true'
-        run: echo "${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}" > docker_image_name.txt
+        run: echo "${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}-latest" > docker_image_name.txt
 
       - name: Commit Docker image name
         if: success() && env.package_json_exist == 'true'
