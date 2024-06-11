@@ -1,18 +1,18 @@
 name: Docker Build & Push
+
 on:
   push:
     branches:
       - main
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout do código
+      - name: Checkout code
         uses: actions/checkout@v2
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-      - name: Validate Dockerfile
-        run: docker build --pull --no-cache -t ${{ github.repository }}:${{ github.ref_name }} -f Dockerfile .
+
       - name: Check if package.json exists
         id: check_package_json
         run: |
@@ -21,23 +21,51 @@ jobs:
           else
             echo "package_json_exist=false" >> $GITHUB_ENV
           fi
-      - name: Determine version
-        id: determine_version
+
+      - name: Run npm install
+        if: env.package_json_exist == 'true'
+        run: npm install
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Build Docker image for development
+        if: env.package_json_exist == 'true'
+        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/teste:dev -f Dockerfile.dev .
+
+      - name: Login to DockerHub
+        if: env.package_json_exist == 'true'
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+
+      - name: Push Docker image for development
+        if: env.package_json_exist == 'true'
+        run: docker push ${{ secrets.DOCKER_USERNAME }}/teste:dev
+
+      - name: Increment Version
+        if: env.package_json_exist == 'true'
         run: |
           if [ -f last_successful_version.txt ]; then
             latest_version=$(cat last_successful_version.txt)
           else
             latest_version="v0.0.0"
           fi
+          echo "Latest version: $latest_version"
+
           IFS='.' read -r major minor patch <<< "${latest_version#v}"
+          echo "Current version: major=$major, minor=$minor, patch=$patch"
+
           latest_commit_message=$(git log -1 --pretty=%B)
+          echo "Latest commit message: $latest_commit_message"
+
           if [[ "$latest_commit_message" == *"BREAKING CHANGE"* ]]; then
             increment="major"
-          elif [[ "$latest_commit_message" == *"feature"* ]]; then
+          elif [[ "$latest_commit_message" == *"feat:"* ]]; then
             increment="minor"
           else
             increment="patch"
           fi
+          echo "Increment type: $increment"
+
           case $increment in
             major)
               new_version="v$(($major + 1)).0.0"
@@ -49,36 +77,32 @@ jobs:
               new_version="v$major.$minor.$(($patch + 1))"
               ;;
           esac
+
+          echo "New version: $new_version"
           echo "new_version=$new_version" >> $GITHUB_ENV
-          echo "new_version=$new_version"
+
       - name: Create new tag
-        if: env.new_version != 'v0.0.0'
+        if: env.package_json_exist == 'true'
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git tag ${{ env.new_version }}
           git push origin ${{ env.new_version }}
-      - name: Login to DockerHub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v3
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/ci-cd-version:${{ env.new_version }}
-          build-args: |
-              version=${{ env.new_version }}
+      - name: Build Docker image for production
+        if: env.package_json_exist == 'true'
+        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }} -f Dockerfile.prod .
+
+      - name: Push Docker image for production
+        if: env.package_json_exist == 'true'
+        run: docker push ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}
+
       - name: Store last successful version
         if: always()
         run: echo ${{ env.new_version }} > last_successful_version.txt
 
       - name: Commit last successful version
-        if: success()
+        if: success() && env.package_json_exist == 'true'
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
@@ -87,14 +111,20 @@ jobs:
           git push origin main
 
       - name: Save Docker image name
-        if: success()
-        run: echo "amandaleandro/ci-cd-version:${{ env.new_version }}" > docker_image_name.txt
+        if: success() && env.package_json_exist == 'true'
+        run: echo "${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}" > docker_image_name.txt
 
       - name: Commit Docker image name
-        if: success()
+        if: success() && env.package_json_exist == 'true'
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git add docker_image_name.txt
           git commit -m "Save Docker image name"
           git push origin main
+
+      - name: Add version annotation
+        if: success()
+        run: |
+          echo "::notice file=build.yml::Docker image built and pushed successfully!"
+          echo "Version: ${{ env.new_version }}"
