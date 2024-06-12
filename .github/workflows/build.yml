@@ -100,6 +100,9 @@ jobs:
           docker tag $EXISTING_TAG $PREVIOUS_TAG
           docker push $PREVIOUS_TAG
 
+          # Remover a tag latest
+          docker rmi $EXISTING_TAG
+
       - name: Build Docker image for production
         if: env.package_json_exist == 'true'
         run: |
@@ -128,7 +131,9 @@ jobs:
 
       - name: Save Docker image name
         if: success() && env.package_json_exist == 'true'
-        run: echo "${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}-latest" > docker_image_name.txt
+        run: |
+          echo "${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}" > docker_image_name.txt
+          echo "${{ secrets.DOCKER_USERNAME }}/nines-report:latest" >> docker_image_name.txt
 
       - name: Commit Docker image name
         if: success() && env.package_json_exist == 'true'
