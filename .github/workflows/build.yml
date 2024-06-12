@@ -90,30 +90,26 @@ jobs:
           IMAGE_NAME="${{ secrets.DOCKER_USERNAME }}/nines-report"
           EXISTING_TAG="${IMAGE_NAME}:latest"
           PREVIOUS_TAG="${IMAGE_NAME}:${{ env.new_version }}-previous-latest"
-          NEW_TAG="${IMAGE_NAME}:${{ env.new_version }}-latest"
-          
+
           echo "IMAGE_NAME=${IMAGE_NAME}"
           echo "EXISTING_TAG=${EXISTING_TAG}"
           echo "PREVIOUS_TAG=${PREVIOUS_TAG}"
-          echo "NEW_TAG=${NEW_TAG}"
-          
+
           # Renomear a tag latest para previous-latest
-          docker pull $EXISTING_TAG
+          docker pull $EXISTING_TAG || exit 0
           docker tag $EXISTING_TAG $PREVIOUS_TAG
           docker push $PREVIOUS_TAG
-          
-          # Remover a tag latest
-          docker rmi $EXISTING_TAG
 
       - name: Build Docker image for production
         if: env.package_json_exist == 'true'
         run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }} -t ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}-latest -f Dockerfile.prod .
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }} -t ${{ secrets.DOCKER_USERNAME }}/nines-report:latest -f Dockerfile.prod .
 
       - name: Push Docker image for production
         if: env.package_json_exist == 'true'
         run: |
-          docker push ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}-latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}
+          docker push ${{ secrets.DOCKER_USERNAME }}/nines-report:latest
 
       - name: Store last successful version
         if: always()
