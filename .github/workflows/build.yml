@@ -50,6 +50,7 @@ jobs:
             latest_version="v0.0.0"
           fi
           echo "Latest version: $latest_version"
+          echo "latest_version=$latest_version" >> $GITHUB_ENV
 
           IFS='.' read -r major minor patch <<< "${latest_version#v}"
           echo "Current version: major=$major, minor=$minor, patch=$patch"
