@@ -31,7 +31,7 @@ jobs:
 
       - name: Build Docker image for development
         if: env.package_json_exist == 'true'
-        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/teste:dev -f Dockerfile.dev .
+        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/nines-report:dev -f Dockerfile.dev .
 
       - name: Login to DockerHub
         if: env.package_json_exist == 'true'
@@ -39,7 +39,7 @@ jobs:
 
       - name: Push Docker image for development
         if: env.package_json_exist == 'true'
-        run: docker push ${{ secrets.DOCKER_USERNAME }}/teste:dev
+        run: docker push ${{ secrets.DOCKER_USERNAME }}/nines-report:dev
 
       - name: Increment Version
         if: env.package_json_exist == 'true'
@@ -84,12 +84,12 @@ jobs:
           echo "New version: $new_version"
           echo "new_version=$new_version" >> $GITHUB_ENV
 
-      - name: Remove previous latest tag
+      - name: Rename previous latest tag
         if: env.package_json_exist == 'true'
         run: |
           IMAGE_NAME="${{ secrets.DOCKER_USERNAME }}/nines-report"
           EXISTING_TAG="${IMAGE_NAME}:latest"
-          PREVIOUS_TAG="${IMAGE_NAME}:${{ env.new_version }}-previous-latest"
+          PREVIOUS_TAG="${IMAGE_NAME}:${latest_version}-previous-latest"
 
           echo "IMAGE_NAME=${IMAGE_NAME}"
           echo "EXISTING_TAG=${EXISTING_TAG}"
@@ -117,12 +117,14 @@ jobs:
 
       - name: Commit last successful version
         if: success() && env.package_json_exist == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git add last_successful_version.txt
           git commit -m "Update last successful version to ${{ env.new_version }}"
-          git push origin main
+          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:main
 
       - name: Save Docker image name
         if: success() && env.package_json_exist == 'true'
@@ -130,12 +132,14 @@ jobs:
 
       - name: Commit Docker image name
         if: success() && env.package_json_exist == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git add docker_image_name.txt
           git commit -m "Save Docker image name"
-          git push origin main
+          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:main
 
       - name: Add version annotation
         if: success()
