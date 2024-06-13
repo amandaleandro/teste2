@@ -83,6 +83,13 @@ jobs:
           docker push $PREVIOUS_LATEST_TAG
           docker rmi $LATEST_TAG || true
 
+      - name: Delete latest tag from DockerHub
+        if: env.package_json_exist == 'true'
+        run: |
+          IMAGE_NAME="${{ secrets.DOCKER_USERNAME }}/nines-report"
+          LATEST_TAG="${IMAGE_NAME}:latest"
+          curl -s -X DELETE -u ${{ secrets.DOCKER_USERNAME }}:${{ secrets.DOCKER_PASSWORD }} "https://hub.docker.com/v2/repositories/${{ secrets.DOCKER_USERNAME }}/nines-report/tags/latest/"
+
       - name: Create new tag
         if: env.package_json_exist == 'true'
         run: |
