@@ -95,12 +95,10 @@ jobs:
 
       - name: Build Docker image for production
         run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}-latest -t ${{ secrets.DOCKER_USERNAME }}/nines-report:latest -f Dockerfile.prod .
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}-latest -f Dockerfile.prod .
 
       - name: Push Docker image for production
-        run: |
-          docker push ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}-latest
-          docker push ${{ secrets.DOCKER_USERNAME }}/nines-report:latest
+        run: docker push ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}-latest
 
       - name: Store last successful version
         if: always()
