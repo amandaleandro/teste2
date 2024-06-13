@@ -82,12 +82,22 @@ jobs:
           docker tag $LATEST_TAG $PREVIOUS_LATEST_TAG
           docker push $PREVIOUS_LATEST_TAG
 
-      - name: Delete latest tag from DockerHub
+      - name: Delete tags after previous latest
         if: env.package_json_exist == 'true'
         run: |
           IMAGE_NAME="${{ secrets.DOCKER_USERNAME }}/nines-report"
-          LATEST_TAG="${IMAGE_NAME}:latest"
-          curl -X DELETE -u ${{ secrets.DOCKER_USERNAME }}:${{ secrets.DOCKER_PASSWORD }} "https://hub.docker.com/v2/repositories/${{ secrets.DOCKER_USERNAME }}/nines-report/tags/latest/" || true
+          PREVIOUS_LATEST_TAG="${IMAGE_NAME}:${{ env.latest_version }}-previous-latest"
+
+          # List all tags
+          tags=$(curl -s -u "${{ secrets.DOCKER_USERNAME }}:${{ secrets.DOCKER_PASSWORD }}" "https://hub.docker.com/v2/repositories/${{ secrets.DOCKER_USERNAME }}/nines-report/tags?page_size=100" | jq -r '.results[].name')
+
+          # Filter and delete tags
+          for tag in $tags; do
+            if [[ $tag == v*-latest && $tag > $PREVIOUS_LATEST_TAG ]]; then
+              echo "Deleting tag: $tag"
+              curl -X DELETE -u ${{ secrets.DOCKER_USERNAME }}:${{ secrets.DOCKER_PASSWORD }} "https://hub.docker.com/v2/repositories/${{ secrets.DOCKER_USERNAME }}/nines-report/tags/$tag/"
+            fi
+          done
 
       - name: Create new tag
         if: env.package_json_exist == 'true'
