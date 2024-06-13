@@ -20,7 +20,6 @@ jobs:
             echo "package_json_exist=true" >> $GITHUB_ENV
           else
             echo "package_json_exist=false" >> $GITHUB_ENV
-          fi
 
       - name: Run npm install
         if: env.package_json_exist == 'true'
@@ -29,20 +28,10 @@ jobs:
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v1
 
-      - name: Build Docker image for development
-        if: env.package_json_exist == 'true'
-        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/nines-report:dev -f Dockerfile.dev .
-
       - name: Login to DockerHub
-        if: env.package_json_exist == 'true'
         run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
 
-      - name: Push Docker image for development
-        if: env.package_json_exist == 'true'
-        run: docker push ${{ secrets.DOCKER_USERNAME }}/nines-report:dev
-
       - name: Increment Version
-        if: env.package_json_exist == 'true'
         run: |
           if [ -f last_successful_version.txt ]; then
             latest_version=$(cat last_successful_version.txt)
@@ -86,7 +75,6 @@ jobs:
           echo "new_version=$new_version" >> $GITHUB_ENV
 
       - name: Rename previous latest tag
-        if: env.package_json_exist == 'true'
         run: |
           IMAGE_NAME="${{ secrets.DOCKER_USERNAME }}/nines-report"
           EXISTING_TAG="${IMAGE_NAME}:latest"
@@ -105,14 +93,12 @@ jobs:
           docker rmi $EXISTING_TAG
 
       - name: Build Docker image for production
-        if: env.package_json_exist == 'true'
         run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }} -t ${{ secrets.DOCKER_USERNAME }}/nines-report:latest -f Dockerfile.prod .
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}-latest -t ${{ secrets.DOCKER_USERNAME }}/nines-report:latest -f Dockerfile.prod .
 
       - name: Push Docker image for production
-        if: env.package_json_exist == 'true'
         run: |
-          docker push ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}
+          docker push ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}-latest
           docker push ${{ secrets.DOCKER_USERNAME }}/nines-report:latest
 
       - name: Store last successful version
@@ -120,7 +106,7 @@ jobs:
         run: echo ${{ env.new_version }} > last_successful_version.txt
 
       - name: Commit last successful version
-        if: success() && env.package_json_exist == 'true'
+        if: success()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -131,13 +117,12 @@ jobs:
           git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:main
 
       - name: Save Docker image name
-        if: success() && env.package_json_exist == 'true'
+        if: success()
         run: |
-          echo "${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}" > docker_image_name.txt
-          echo "${{ secrets.DOCKER_USERNAME }}/nines-report:latest" >> docker_image_name.txt
+          echo "${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}-latest" > docker_image_name.txt
 
       - name: Commit Docker image name
-        if: success() && env.package_json_exist == 'true'
+        if: success()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
