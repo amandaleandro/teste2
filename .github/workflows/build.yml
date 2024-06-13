@@ -25,17 +25,6 @@ jobs:
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v1
 
-      - name: Remove previous latest tag
-        if: env.package_json_exist == 'true'
-        run: |
-          IMAGE_NAME="${DOCKER_USERNAME}/nines-report"
-          EXISTING_TAG="${IMAGE_NAME}:${latest_version}-latest"
-          PREVIOUS_TAG="${IMAGE_NAME}:${latest_version}-previous-latest"
-
-          docker pull $EXISTING_TAG || exit 0
-          docker tag $EXISTING_TAG $PREVIOUS_TAG
-          docker push $PREVIOUS_TAG
-
       - name: Increment Version
         if: env.package_json_exist == 'true'
         run: |
@@ -76,6 +65,19 @@ jobs:
           echo "New version: $new_version"
           echo "new_version=$new_version" >> $GITHUB_ENV
 
+      - name: Remove previous latest tag
+        if: env.package_json_exist == 'true'
+        run: |
+          IMAGE_NAME="${{ secrets.DOCKER_USERNAME }}/nines-report"
+          EXISTING_TAG="${IMAGE_NAME}:${latest_version}-latest"
+          PREVIOUS_TAG="${IMAGE_NAME}:${latest_version}-previous-latest"
+
+          docker pull $EXISTING_TAG || exit 0
+          docker tag $EXISTING_TAG $PREVIOUS_TAG
+          docker push $PREVIOUS_TAG
+
+          docker rmi $EXISTING_TAG
+
       - name: Create new tag
         if: env.package_json_exist == 'true'
         run: |
@@ -109,7 +111,7 @@ jobs:
 
       - name: Save Docker image name
         if: success() && env.package_json_exist == 'true'
-        run: echo "${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}" > docker_image_name.txt
+        run: echo "${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}-latest" > docker_image_name.txt
 
       - name: Commit Docker image name
         if: success() && env.package_json_exist == 'true'
