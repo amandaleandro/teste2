@@ -78,7 +78,7 @@ jobs:
       - name: Rename previous latest tag
         run: |
           IMAGE_NAME="${{ secrets.DOCKER_USERNAME }}/nines-report"
-          EXISTING_TAG="${IMAGE_NAME}:${latest_version} latest"
+          EXISTING_TAG="${IMAGE_NAME}:${latest_version}-latest"
           PREVIOUS_TAG="${IMAGE_NAME}:${latest_version}-previous-latest"
 
           echo "IMAGE_NAME=${IMAGE_NAME}"
