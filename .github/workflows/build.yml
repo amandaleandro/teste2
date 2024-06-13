@@ -71,7 +71,7 @@ jobs:
           echo "New version: $new_version"
           echo "new_version=$new_version" >> $GITHUB_ENV
 
-      - name: Remove previous latest tag
+      - name: Rename previous latest tag
         if: env.package_json_exist == 'true'
         run: |
           IMAGE_NAME="${{ secrets.DOCKER_USERNAME }}/nines-report"
@@ -81,6 +81,12 @@ jobs:
           docker pull $LATEST_TAG || exit 0
           docker tag $LATEST_TAG $PREVIOUS_LATEST_TAG
           docker push $PREVIOUS_LATEST_TAG
+
+      - name: Delete latest tag from local
+        if: env.package_json_exist == 'true'
+        run: |
+          IMAGE_NAME="${{ secrets.DOCKER_USERNAME }}/nines-report"
+          LATEST_TAG="${IMAGE_NAME}:latest"
           docker rmi $LATEST_TAG || true
 
       - name: Delete latest tag from DockerHub
