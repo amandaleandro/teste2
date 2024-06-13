@@ -25,6 +25,10 @@ jobs:
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v1
 
+      - name: Login to DockerHub
+        if: env.package_json_exist == 'true'
+        run: |
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
       - name: Increment Version
         if: env.package_json_exist == 'true'
         run: |
@@ -126,3 +130,4 @@ jobs:
         run: |
           echo "::notice file=build.yml::Docker image built and pushed successfully!"
           echo "Version: ${{ env.new_version }}"
+          echo "Docker image: ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}-latest"
