@@ -83,29 +83,24 @@ jobs:
 
       - name: Push Docker image for production
         if: env.package_json_exist == 'true'
-        run: docker push ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}
+        run: |
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+          docker push ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}
 
-      - name: Delete previous latest tag
+      - name: Remove previous latest tag
         if: env.package_json_exist == 'true'
         run: |
           IMAGE_NAME="${DOCKER_USERNAME}/nines-report"
           EXISTING_TAG="${IMAGE_NAME}:latest"
           PREVIOUS_TAG="${IMAGE_NAME}:${latest_version}-previous-latest"
 
-          echo "IMAGE_NAME=${IMAGE_NAME}"
-          echo "EXISTING_TAG=${EXISTING_TAG}"
-          echo "PREVIOUS_TAG=${PREVIOUS_TAG}"
-
-          # Verificar se a tag latest existe e removê-la se existir
+          # Renomear a tag latest para previous-latest
           docker pull $EXISTING_TAG || exit 0
           docker tag $EXISTING_TAG $PREVIOUS_TAG
           docker push $PREVIOUS_TAG
 
-          # Deletar a tag latest, se existir
-          docker rmi $EXISTING_TAG || echo "No existing image with tag latest to delete"
-
-          # Limpar imagens não utilizadas localmente
-          docker image prune -f
+          # Remover a tag latest
+          docker rmi $EXISTING_TAG
 
       - name: Store last successful version
         if: always()
