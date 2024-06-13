@@ -1,1 +1,1 @@
-amandalscarmo/nines-report:v0.1.6
+amandalscarmo/nines-report:v1.0.0
