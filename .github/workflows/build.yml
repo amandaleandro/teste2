@@ -96,8 +96,7 @@ jobs:
         if: env.package_json_exist == 'true'
         run: |
           echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
-          docker push ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}
-          docker push ${{ secrets.DOCKER_USERNAME }}/nines-report:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}-latest
 
       - name: Store last successful version
         if: always()
@@ -109,12 +108,12 @@ jobs:
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git add last_successful_version.txt
-          git commit -m "Update last successful version to ${{ env.new_version }}"
+          git commit -m "Update last successful version to ${{ env.new_version }}-latest"
           git push origin main
 
       - name: Save Docker image name
         if: success() && env.package_json_exist == 'true'
-        run: echo "${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}" > docker_image_name.txt
+        run: echo "${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}-latest" > docker_image_name.txt
 
       - name: Commit Docker image name
         if: success() && env.package_json_exist == 'true'
