@@ -29,6 +29,7 @@ jobs:
         if: env.package_json_exist == 'true'
         run: |
           echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+
       - name: Increment Version
         if: env.package_json_exist == 'true'
         run: |
@@ -73,8 +74,8 @@ jobs:
         if: env.package_json_exist == 'true'
         run: |
           IMAGE_NAME="${{ secrets.DOCKER_USERNAME }}/nines-report"
-          LATEST_TAG="${IMAGE_NAME}:${latest_version}-latest"
-          PREVIOUS_LATEST_TAG="${IMAGE_NAME}:${latest_version}-previous-latest"
+          LATEST_TAG="${IMAGE_NAME}:latest"
+          PREVIOUS_LATEST_TAG="${IMAGE_NAME}:previous-latest"
 
           docker pull $LATEST_TAG || exit 0
           docker tag $LATEST_TAG $PREVIOUS_LATEST_TAG
