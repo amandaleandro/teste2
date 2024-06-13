@@ -22,12 +22,23 @@ jobs:
             echo "package_json_exist=false" >> $GITHUB_ENV
           fi
 
-      - name: Run npm install
-        if: env.package_json_exist == 'true'
-        run: npm install
-
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v1
+
+      - name: Remove previous latest tag
+        if: env.package_json_exist == 'true'
+        run: |
+          IMAGE_NAME="${DOCKER_USERNAME}/nines-report"
+          EXISTING_TAG="${IMAGE_NAME}:latest"
+          PREVIOUS_TAG="${IMAGE_NAME}:${latest_version}-previous-latest"
+
+          # Renomear a tag latest para previous-latest
+          docker pull $EXISTING_TAG || exit 0
+          docker tag $EXISTING_TAG $PREVIOUS_TAG
+          docker push $PREVIOUS_TAG
+
+          # Remover a tag latest
+          docker rmi $EXISTING_TAG
 
       - name: Increment Version
         if: env.package_json_exist == 'true'
@@ -79,32 +90,18 @@ jobs:
 
       - name: Build Docker image for production
         if: env.package_json_exist == 'true'
-        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }} -f Dockerfile.prod .
+        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }} -t ${{ secrets.DOCKER_USERNAME }}/nines-report:latest -f Dockerfile.prod .
 
       - name: Push Docker image for production
         if: env.package_json_exist == 'true'
         run: |
           echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
           docker push ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}
-
-      - name: Remove previous latest tag
-        if: env.package_json_exist == 'true'
-        run: |
-          IMAGE_NAME="${DOCKER_USERNAME}/nines-report"
-          EXISTING_TAG="${IMAGE_NAME}:${{env.new_version}}latest"
-          PREVIOUS_TAG="${IMAGE_NAME}:${latest_version}-previous-latest"
-
-          # Renomear a tag latest para previous-latest
-          docker pull $EXISTING_TAG || exit 0
-          docker tag $EXISTING_TAG $PREVIOUS_TAG
-          docker push $PREVIOUS_TAG
-
-          # Remover a tag latest
-          docker rmi $EXISTING_TAG
+          docker push ${{ secrets.DOCKER_USERNAME }}/nines-report:latest
 
       - name: Store last successful version
         if: always()
-        run: echo ${{ env.new_version }}-latest > last_successful_version.txt
+        run: echo ${{ env.new_version }} > last_successful_version.txt
 
       - name: Commit last successful version
         if: success() && env.package_json_exist == 'true'
@@ -112,12 +109,12 @@ jobs:
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git add last_successful_version.txt
-          git commit -m "Update last successful version to ${{ env.new_version }}-latest"
+          git commit -m "Update last successful version to ${{ env.new_version }}"
           git push origin main
 
       - name: Save Docker image name
         if: success() && env.package_json_exist == 'true'
-        run: echo "${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}-latest" > docker_image_name.txt
+        run: echo "${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}" > docker_image_name.txt
 
       - name: Commit Docker image name
         if: success() && env.package_json_exist == 'true'
