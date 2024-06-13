@@ -20,6 +20,7 @@ jobs:
             echo "package_json_exist=true" >> $GITHUB_ENV
           else
             echo "package_json_exist=false" >> $GITHUB_ENV
+          fi
 
       - name: Run npm install
         if: env.package_json_exist == 'true'
