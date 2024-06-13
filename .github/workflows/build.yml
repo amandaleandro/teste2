@@ -59,13 +59,13 @@ jobs:
 
           case $increment in
             major)
-              new_version="v$(($major + 1)).0.0"
+              new_version="v$(($major < 99 ? $major + 1 : 0)).0.0"
               ;;
             minor)
-              new_version="v$major.$(($minor + 1)).0"
+              new_version="v$major.$(($minor < 99 ? $minor + 1 : 0)).0"
               ;;
             patch)
-              new_version="v$major.$minor.$(($patch + 1))"
+              new_version="v$major.$minor.$(($patch < 99 ? $patch + 1 : 0))"
               ;;
           esac
 
@@ -87,19 +87,17 @@ jobs:
           docker tag $EXISTING_TAG $PREVIOUS_TAG
           docker push $PREVIOUS_TAG
 
-          # Deletar a tag latest usando a API do Docker Hub
+          # Deletar a tag latest
           digest=$(curl -s -H "Authorization: Bearer $(echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin | grep -o '^[a-z0-9]*')" "https://index.docker.io/v2/${IMAGE_NAME}/manifests/latest" | jq -r .config.digest)
           curl -X DELETE -s -H "Authorization: Bearer $(echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin | grep -o '^[a-z0-9]*')" "https://index.docker.io/v2/${IMAGE_NAME}/manifests/$digest"
 
       - name: Build Docker image for production
         run: |
           docker build -t ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}-latest -f Dockerfile.prod .
-          docker tag ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}-latest ${{ secrets.DOCKER_USERNAME }}/nines-report:latest
 
       - name: Push Docker image for production
         run: |
           docker push ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}-latest
-          docker push ${{ secrets.DOCKER_USERNAME }}/nines-report:latest
 
       - name: Store last successful version
         if: always()
