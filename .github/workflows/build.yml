@@ -1,4 +1,4 @@
-name: Docker Build & Push
+name: Docker CI/CD
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  build:
+  build_and_push:
     runs-on: ubuntu-latest
 
     steps:
@@ -20,15 +20,30 @@ jobs:
             echo "package_json_exist=true" >> $GITHUB_ENV
           else
             echo "package_json_exist=false" >> $GITHUB_ENV
-          fi
 
-      - name: Setup Docker Buildx
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
+
+      - name: Cache Docker layers
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
 
       - name: Login to DockerHub
         if: env.package_json_exist == 'true'
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Extract version from Dockerfile
+        id: extract_version
         run: |
-          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+          VERSION=$(grep -oP '(?<=VERSION=)\d+\.\d+\.\d+' Dockerfile)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Increment Version
         if: env.package_json_exist == 'true'
@@ -74,7 +89,7 @@ jobs:
       - name: Rename previous latest tag
         if: env.package_json_exist == 'true'
         run: |
-          IMAGE_NAME="${{ secrets.DOCKER_USERNAME }}/nines-report"
+          IMAGE_NAME="${{ secrets.DOCKER_HUB_USERNAME }}/nines-report"
           LATEST_TAG="${IMAGE_NAME}:latest"
           PREVIOUS_LATEST_TAG="${IMAGE_NAME}:${{ env.latest_version }}-previous-latest"
 
@@ -82,42 +97,15 @@ jobs:
           docker tag $LATEST_TAG $PREVIOUS_LATEST_TAG
           docker push $PREVIOUS_LATEST_TAG
 
-      - name: Delete old latest tags
+      - name: Build and push Docker image
         if: env.package_json_exist == 'true'
         run: |
-          IMAGE_NAME="${{ secrets.DOCKER_USERNAME }}/nines-report"
-
-          # List all tags
-          tags=$(curl -s -u "${{ secrets.DOCKER_USERNAME }}:${{ secrets.DOCKER_PASSWORD }}" "https://hub.docker.com/v2/repositories/${{ secrets.DOCKER_USERNAME }}/nines-report/tags?page_size=100" | jq -r '.results[].name')
-
-          # Filter and delete tags
-          for tag in $tags; do
-            if [[ $tag =~ v[0-9]+\.[0-9]+\.[0-9]+-latest && $tag != ${{ env.new_version }}-latest ]]; then
-              echo "Deleting tag: $tag"
-              curl -X DELETE -u ${{ secrets.DOCKER_USERNAME }}:${{ secrets.DOCKER_PASSWORD }} "https://hub.docker.com/v2/repositories/${{ secrets.DOCKER_USERNAME }}/nines-report/tags/$tag/"
-            fi
-          done
-
-      - name: Create new tag
-        if: env.package_json_exist == 'true'
-        run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git tag ${{ env.new_version }}
-          git push origin ${{ env.new_version }}
-
-      - name: Build Docker image for production
-        if: env.package_json_exist == 'true'
-        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}-latest -f Dockerfile.prod .
-
-      - name: Push Docker image for production
-        if: env.package_json_exist == 'true'
-        run: |
-          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
-          docker push ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}-latest
+          IMAGE_NAME="${{ secrets.DOCKER_HUB_USERNAME }}/nines-report"
+          VERSION=${{ env.new_version }}
+          docker buildx build --push --tag $IMAGE_NAME:$VERSION-latest --tag $IMAGE_NAME:latest .
 
       - name: Store last successful version
-        if: always()
+        if: success() && env.package_json_exist == 'true'
         run: echo ${{ env.new_version }} > last_successful_version.txt
 
       - name: Commit last successful version
@@ -131,7 +119,7 @@ jobs:
 
       - name: Save Docker image name
         if: success() && env.package_json_exist == 'true'
-        run: echo "${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}-latest" > docker_image_name.txt
+        run: echo "${{ secrets.DOCKER_HUB_USERNAME }}/nines-report:${{ env.new_version }}-latest" > docker_image_name.txt
 
       - name: Commit Docker image name
         if: success() && env.package_json_exist == 'true'
@@ -147,4 +135,22 @@ jobs:
         run: |
           echo "::notice file=build.yml::Docker image built and pushed successfully!"
           echo "Version: ${{ env.new_version }}"
-          echo "Docker image: ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}-latest"
+          echo "Docker image: ${{ secrets.DOCKER_HUB_USERNAME }}/nines-report:${{ env.new_version }}-latest"
+
+      - name: Delete old Docker tags
+        if: success() && env.package_json_exist == 'true'
+        run: |
+          IMAGE_NAME="${{ secrets.DOCKER_HUB_USERNAME }}/nines-report"
+          DOCKER_HUB_USERNAME="${{ secrets.DOCKER_HUB_USERNAME }}"
+          DOCKER_HUB_TOKEN="${{ secrets.DOCKER_HUB_TOKEN }}"
+
+          # List all tags
+          tags=$(curl -s -u "$DOCKER_HUB_USERNAME:$DOCKER_HUB_TOKEN" "https://hub.docker.com/v2/repositories/$IMAGE_NAME/tags?page_size=100" | jq -r '.results[].name')
+          
+          # Filter and delete tags
+          for tag in $tags; do
+            if [[ $tag =~ v[0-9]+\.[0-9]+\.[0-9]+-latest && $tag != ${{ env.new_version }}-latest ]]; then
+              echo "Deleting tag: $tag"
+              curl -X DELETE -u "$DOCKER_HUB_USERNAME:$DOCKER_HUB_TOKEN" "https://hub.docker.com/v2/repositories/$IMAGE_NAME/tags/$tag/"
+            fi
+          done
