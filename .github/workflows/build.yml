@@ -39,12 +39,6 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
-      - name: Extract version from Dockerfile
-        id: extract_version
-        run: |
-          VERSION=$(grep -oP '(?<=VERSION=)\d+\.\d+\.\d+' Dockerfile)
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-
       - name: Increment Version
         if: env.package_json_exist == 'true'
         run: |
