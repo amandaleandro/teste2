@@ -142,9 +142,11 @@ jobs:
           # List all tags
           tags=$(curl -s -u "$DOCKER_HUB_USERNAME:$DOCKER_HUB_TOKEN" "https://hub.docker.com/v2/repositories/$IMAGE_NAME/tags?page_size=100" | jq -r '.results[].name')
           
+          echo "Tags found: $tags"
+
           # Filter and delete tags
           for tag in $tags; do
-            if [[ $tag =~ v[0-9]+\.[0-9]+\.[0-9]+-latest && $tag != ${new_version}-latest ]]; then
+            if [[ $tag =~ v[0-9]+\.[0-9]+\.[0-9]+-latest && $tag != "${{ env.new_version }}-latest" ]]; then
               echo "Deleting tag: $tag"
               response=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "$DOCKER_HUB_USERNAME:$DOCKER_HUB_TOKEN" "https://hub.docker.com/v2/repositories/$IMAGE_NAME/tags/$tag/")
               echo "Response for $tag: $response"
