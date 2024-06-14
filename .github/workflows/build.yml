@@ -95,7 +95,7 @@ jobs:
       - name: Build and push Docker image
         if: env.package_json_exist == 'true'
         run: |
-          IMAGE_NAME="${{ secrets.DOCKER_HUB_USERNAME }}/nines-report"
+          IMAGE_NAME="${{ secrets.DOCKER_USERNAME }}/nines-report"
           VERSION=${{ env.new_version }}
           docker buildx build --push --tag $IMAGE_NAME:$VERSION-latest --tag $IMAGE_NAME:latest .
 
