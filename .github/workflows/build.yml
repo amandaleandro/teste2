@@ -97,7 +97,7 @@ jobs:
         run: |
           IMAGE_NAME="${{ secrets.DOCKER_USERNAME }}/nines-report"
           VERSION=${{ env.new_version }}
-          docker buildx build --push --tag $IMAGE_NAME:$VERSION-latest --tag $IMAGE_NAME:${{ env.new_version }}-latest .
+          docker buildx build --push --tag $IMAGE_NAME:$VERSION-latest --tag $IMAGE_NAME:latest .
 
       - name: Store last successful version
         if: success() && env.package_json_exist == 'true'
@@ -114,7 +114,7 @@ jobs:
 
       - name: Save Docker image name
         if: success() && env.package_json_exist == 'true'
-        run: echo "${{ secrets.DOCKER_HUB_USERNAME }}/nines-report:${{ env.new_version }}-latest" > docker_image_name.txt
+        run: echo "${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}-latest" > docker_image_name.txt
 
       - name: Commit Docker image name
         if: success() && env.package_json_exist == 'true'
@@ -136,7 +136,7 @@ jobs:
         if: success() && env.package_json_exist == 'true'
         run: |
           IMAGE_NAME="${{ secrets.DOCKER_USERNAME }}/nines-report"
-          DOCKER_HUB_USERNAME="${{ secrets.DOCKER_HUB_USERNAME }}"
+          DOCKER_HUB_USERNAME="${{ secrets.DOCKER_USERNAME }}"
           DOCKER_HUB_TOKEN="${{ secrets.DOCKER_PASSWORD }}"
 
           # List all tags
@@ -144,8 +144,12 @@ jobs:
           
           # Filter and delete tags
           for tag in $tags; do
-            if [[ $tag =~ v[0-9]+\.[0-9]+\.[0-9]+-latest && $tag != ${{ env.new_version }}-latest ]]; then
+            if [[ $tag =~ v[0-9]+\.[0-9]+\.[0-9]+-latest && $tag != ${new_version}-latest ]]; then
               echo "Deleting tag: $tag"
-              curl -X DELETE -u "$DOCKER_HUB_USERNAME:$DOCKER_HUB_TOKEN" "https://hub.docker.com/v2/repositories/$IMAGE_NAME/tags/$tag/"
+              response=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "$DOCKER_HUB_USERNAME:$DOCKER_HUB_TOKEN" "https://hub.docker.com/v2/repositories/$IMAGE_NAME/tags/$tag/")
+              echo "Response for $tag: $response"
+              if [ "$response" -ne 204 ]; then
+                echo "::error::Failed to delete tag $tag. HTTP response code: $response"
+              fi
             fi
           done
