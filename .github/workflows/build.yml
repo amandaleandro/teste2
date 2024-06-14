@@ -97,7 +97,7 @@ jobs:
         run: |
           IMAGE_NAME="${{ secrets.DOCKER_USERNAME }}/nines-report"
           VERSION=${{ env.new_version }}
-          docker buildx build --push --tag $IMAGE_NAME:$VERSION-latest --tag $IMAGE_NAME:${{ env.new_version }}-latest .
+          docker buildx build --push --tag $IMAGE_NAME:$VERSION-latest --tag $IMAGE_NAME:latest .
 
       - name: Store last successful version
         if: success() && env.package_json_exist == 'true'
