@@ -20,7 +20,6 @@ jobs:
             echo "package_json_exist=true" >> $GITHUB_ENV
           else
             echo "package_json_exist=false" >> $GITHUB_ENV
-          fi
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
@@ -81,23 +80,23 @@ jobs:
           echo "New version: $new_version"
           echo "new_version=$new_version" >> $GITHUB_ENV
 
-      - name: Rename previous latest tag
+      - name: Tag previous latest version
         if: env.package_json_exist == 'true'
         run: |
           IMAGE_NAME="${{ secrets.DOCKER_USERNAME }}/nines-report"
           LATEST_TAG="${IMAGE_NAME}:latest"
-          PREVIOUS_LATEST_TAG="${IMAGE_NAME}:${{ env.latest_version }}-previous-latest"
+          PREVIOUS_TAG="${IMAGE_NAME}:${{ env.latest_version }}"
 
           docker pull $LATEST_TAG || exit 0
-          docker tag $LATEST_TAG $PREVIOUS_LATEST_TAG
-          docker push $PREVIOUS_LATEST_TAG
+          docker tag $LATEST_TAG $PREVIOUS_TAG
+          docker push $PREVIOUS_TAG
 
       - name: Build and push Docker image
         if: env.package_json_exist == 'true'
         run: |
           IMAGE_NAME="${{ secrets.DOCKER_USERNAME }}/nines-report"
           VERSION=${{ env.new_version }}
-          docker buildx build --push --tag $IMAGE_NAME:$VERSION-latest --tag $IMAGE_NAME:${{ env.new_version }}-latest .
+          docker buildx build --push --tag $IMAGE_NAME:latest --tag $IMAGE_NAME:$VERSION .
 
       - name: Store last successful version
         if: success() && env.package_json_exist == 'true'
@@ -114,7 +113,7 @@ jobs:
 
       - name: Save Docker image name
         if: success() && env.package_json_exist == 'true'
-        run: echo "${{ secrets.DOCKER_HUB_USERNAME }}/nines-report:${{ env.new_version }}-latest" > docker_image_name.txt
+        run: echo "${{ secrets.DOCKER_HUB_USERNAME }}/nines-report:${{ env.new_version }}" > docker_image_name.txt
 
       - name: Commit Docker image name
         if: success() && env.package_json_exist == 'true'
@@ -130,7 +129,7 @@ jobs:
         run: |
           echo "::notice file=build.yml::Docker image built and pushed successfully!"
           echo "Version: ${{ env.new_version }}"
-          echo "Docker image: ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}-latest"
+          echo "Docker image: ${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}"
 
       - name: Verify DockerHub Credentials
         if: success() && env.package_json_exist == 'true'
@@ -140,30 +139,27 @@ jobs:
             echo "::error::DOCKER_HUB_TOKEN is empty"
           else
             echo "DOCKER_HUB_TOKEN is set"
-          fi
 
+      - name: Delete old Docker tags
+        if: success() && env.package_json_exist == 'true'
+        run: |
+          IMAGE_NAME="${{ secrets.DOCKER_USERNAME }}/nines-report"
+          DOCKER_HUB_USERNAME="${{ secrets.DOCKER_USERNAME }}"
+          DOCKER_HUB_TOKEN="${{ secrets.DOCKER_PASSWORD }}"
 
-- name: Delete old Docker tags
-  if: success() && env.package_json_exist == 'true'
-  run: |
-    IMAGE_NAME="${{ secrets.DOCKER_USERNAME }}/nines-report"
-    DOCKER_HUB_USERNAME="${{ secrets.DOCKER_HUB_USERNAME }}"
-    DOCKER_HUB_TOKEN="${{ secrets.DOCKER_PASSWORD }}"
+          # List all tags
+          tags=$(curl -s -u "$DOCKER_HUB_USERNAME:$DOCKER_HUB_TOKEN" "https://hub.docker.com/v2/repositories/$IMAGE_NAME/tags?page_size=100" | jq -r '.results[].name')
 
-    # List all tags
-    tags=$(curl -s -u "$DOCKER_HUB_USERNAME:$DOCKER_HUB_TOKEN" "https://hub.docker.com/v2/repositories/$IMAGE_NAME/tags?page_size=100" | jq -r '.results[].name')
+          echo "Tags found: $tags"
 
-    echo "Tags found: $tags"
-
-    # Filter and delete tags
-    for tag in $tags; do
-      if [[ $tag =~ v[0-9]+\.[0-9]+\.[0-9]+-latest && $tag != "v1.0.21-latest" ]]; then
-        echo "Deleting tag: $tag"
-        response=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "$DOCKER_HUB_USERNAME:$DOCKER_HUB_TOKEN" "https://hub.docker.com/v2/repositories/$IMAGE_NAME/tags/$tag/")
-        echo "Response for $tag: $response"
-        if [ "$response" -ne 204 ]; then
-          echo "::error::Failed to delete tag $tag. HTTP response code: $response"
-        fi
-      fi
-    done
-
+          # Filter and delete tags
+          for tag in $tags; do
+            if [[ $tag =~ v[0-9]+\.[0-9]+\.[0-9]+-latest && $tag != "latest" ]]; then
+              echo "Deleting tag: $tag"
+              response=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE -u "$DOCKER_HUB_USERNAME:$DOCKER_HUB_TOKEN" "https://hub.docker.com/v2/repositories/$IMAGE_NAME/tags/$tag/")
+              echo "Response for $tag: $response"
+              if [ "$response" -ne 204 ]; then
+                echo "::error::Failed to delete tag $tag. HTTP response code: $response"
+              fi
+            fi
+          done
