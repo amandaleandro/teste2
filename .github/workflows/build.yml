@@ -141,3 +141,9 @@ jobs:
           else
             echo "DOCKER_HUB_TOKEN is set"
           fi
+
+      - name: Create GitHub tag
+        if: success() && env.package_json_exist == 'true'
+        run: |
+          git tag ${{ env.new_version }}
+          git push origin ${{ env.new_version }}
