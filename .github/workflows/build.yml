@@ -114,7 +114,7 @@ jobs:
 
       - name: Save Docker image name
         if: success() && env.package_json_exist == 'true'
-        run: echo "${{ secrets.DOCKER_HUB_USERNAME }}/nines-report:${{ env.new_version }}" > docker_image_name.txt
+        run: echo "${{ secrets.DOCKER_USERNAME }}/nines-report:${{ env.new_version }}" > docker_image_name.txt
 
       - name: Commit Docker image name
         if: success() && env.package_json_exist == 'true'
@@ -135,11 +135,12 @@ jobs:
       - name: Verify DockerHub Credentials
         if: success() && env.package_json_exist == 'true'
         run: |
-          echo "DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}"
+          echo "DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_USERNAME }}"
           if [ -z "${{ secrets.DOCKER_PASSWORD }}" ]; then
             echo "::error::DOCKER_HUB_TOKEN is empty"
           else
             echo "DOCKER_HUB_TOKEN is set"
+          fi  # <-- Adicionei o fechamento do if aqui
 
       - name: Delete old Docker tags
         if: success() && env.package_json_exist == 'true'
